@@ -1,0 +1,53 @@
+# Include environment variables from .env file
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
+.PHONY: build-primary1 build-primary2 start-primary1 start-primary2 stop create-myisam-table switch-to-primary2 validate-myisam-table
+
+# Build the primary1 and primary2 images
+build-primary1:
+	docker build -t mysql-primary1 .
+
+build-primary2:
+	docker build --build-arg build_type=primary2 -t mysql-primary2 .
+
+# Start only the primary1
+start-primary1: build-primary1
+	@mkdir -p shared_data 
+	docker-compose up -d mysql-primary1
+
+# Start only the primary2
+start-primary2: build-primary2
+	docker-compose up -d mysql-primary2
+
+# Stop the primary1 and primary2
+stop:
+	docker-compose down -v --remove-orphans
+	if [ -d "shared_data" ]; then find shared_data -mindepth 1 -maxdepth 1 -print0 | xargs -0 rm -rf; fi
+
+# Create a MyISAM table and populate it in primary1
+create-myisam-table:
+	@echo "Creating MyISAM table in primary1..."
+	@docker-compose exec -T mysql-primary1 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS testdb; USE testdb; CREATE TABLE myisam_table (id INT PRIMARY KEY) ENGINE=MyISAM; INSERT INTO myisam_table VALUES (1)" 2>/dev/null
+	@echo "MyISAM table created and populated."
+
+# Stop primary1, start primary2, and validate
+switch-to-primary2: stop-primary1 start-primary2 validate-myisam-table set-permissions
+	@echo "Successfully switched to primary2 by remounting the volume."
+
+# Stop primary1
+stop-primary1:
+	docker-compose stop mysql-primary1
+
+# Validate that the MyISAM table exists and is accessible in primary2
+validate-myisam-table:
+	@echo "Validating MyISAM table in primary2..."
+	@docker-compose exec -T mysql-primary2 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "USE testdb; SELECT * FROM myisam_table" -P3307 2>/dev/null
+	@echo "MyISAM table validated."
+
+set-permissions:
+	@echo "Setting permissions on shared directory"
+	@docker-compose exec -T mysql-primary2 chown -R mysql:mysql /rl/data
+	@echo "Permissions set"

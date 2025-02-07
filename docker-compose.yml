@@ -1,0 +1,48 @@
+services:
+  mysql-primary1:
+    image: mysql-primary1
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./shared_data:/rl/data/mysql/data01/data
+      - ./primary1:/docker-entrypoint-initdb.d
+    networks:
+      db-network:
+        ipv4_address: 172.20.0.3
+    restart: unless-stopped
+    #healthcheck:  # Temporarily disable healthcheck
+    #  test: ["CMD", "mysql", "-h", "localhost", "-P", "3306", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}", "-e", "SELECT 1"]
+    #  interval: 30s
+    #  timeout: 5s
+    #  retries: 5
+    #  start_period: 60s
+
+  mysql-primary2:
+    image: mysql-primary2
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./shared_data2:/rl/data/mysql/data02/data
+      - ./shared_data:/rl/data/mysql/data01/data
+    networks:
+      db-network:
+        ipv4_address: 172.20.0.2
+    restart: unless-stopped
+    #healthcheck:  # Temporarily disable healthcheck
+    #  test: ["CMD", "mysql", "-h", "localhost", "-P", "3307", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}", "-e", "SELECT 1"]
+    #  interval: 30s
+    #  timeout: 5s
+    #  retries: 5
+    #  start_period: 60s
+
+networks:
+  db-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
