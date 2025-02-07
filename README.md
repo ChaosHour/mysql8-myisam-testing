@@ -1,5 +1,10 @@
 ## Ran the following tests: 
 
+What is needed to run this test:
+- MySQL Client
+- Create two folders in the root of this project called shared_data and shared_data2
+- Docker
+
 ```bash
 Did not work:
 MySQL 8:
